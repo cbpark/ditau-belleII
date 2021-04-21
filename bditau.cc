@@ -50,7 +50,7 @@ double mRecoil(const LorentzVector &p1, const LorentzVector &p2);
 ///
 /// Here 'p1' and 'p2' could be either visible or invisible particle momenta.
 /// By definition, it is in between 0 and 1.
-double ratioMomentum(const LorentzVector &p1, const LorentzVector &p2);
+double momentumRatio(const LorentzVector &p1, const LorentzVector &p2);
 
 std::optional<yam2::M2Solution> getM2(const LorentzVector &p1,
                                       const LorentzVector &p2,
@@ -125,7 +125,7 @@ int main(int, char *argv[]) {
 
         m_recoil = mRecoil(p1, p2);
 
-        xi_p = ratioMomentum(p1, p2);
+        xi_p = momentumRatio(p1, p2);
 
         const auto m2sol = getM2(p1, p2, ptmiss);
         if (!m2sol) {
@@ -137,7 +137,7 @@ int main(int, char *argv[]) {
             m2 = m2sol.value().m2();
             k1sol = toLorentzVector(m2sol.value().k1());
             k2sol = toLorentzVector(m2sol.value().k2());
-            xi_k = ratioMomentum(k1sol, k2sol);
+            xi_k = momentumRatio(k1sol, k2sol);
         }
         cout << "e_miss: " << e_miss << ", m_recoil: " << m_recoil
              << ", xi_p: " << xi_p << '\n';
@@ -162,7 +162,7 @@ double mRecoil(const LorentzVector &p1, const LorentzVector &p2) {
     return p_miss.mass();
 }
 
-double ratioMomentum(const LorentzVector &p1, const LorentzVector &p2) {
+double momentumRatio(const LorentzVector &p1, const LorentzVector &p2) {
     const auto [pmin, pmax] = std::minmax({p1.P(), p2.P()});
     return pmin / std::max(pmax, 1.0e-10);
 }
