@@ -1,5 +1,13 @@
 /*
  *  Copyright 2021 Chan Beom Park <cbpark@gmail.com>
+ *
+ *  This code calculates various observables for the e+ e- --> tau+ tau- process
+ *  using YAM2 (https://github.com/cbpark/YAM2). The decay topology is
+ *
+ *  X --> Y1 + Y2 --> vis1(p1) inv1(k1) + vis2(p2) inv2(k2)
+ *
+ *  where X corresponds to sqrt(s) and Y's are the decaying particle (tau).
+ *  vis and inv are visible and invisible particles, respectively.
  */
 
 #include <algorithm>  // std::max, std::minmax
@@ -24,13 +32,13 @@ using LorentzVector = ROOT::Math::LorentzVector<ROOT::Math::PxPyPzE4D<double>>;
 
 const auto appname{"bditau"};
 
-/// the longitudinal momentum of di-tau system (it's 0 for the CMS).
+/// the longitudinal momentum of the di-tau system (it's 0 for the CMS).
 const double PZTOT = 0.0;
 
 /// sqrt(s) of CMS.
 const double SQRTS = 10.579;
 
-/// the four-momentum of CMS.
+/// the four-momentum of the di-tau system.
 const LorentzVector CMS{0.0, 0.0, PZTOT, SQRTS};
 
 /// the invisible particle mass.
@@ -52,6 +60,7 @@ double mRecoil(const LorentzVector &p1, const LorentzVector &p2);
 /// By definition, it is in between 0 and 1.
 double momentumRatio(const LorentzVector &p1, const LorentzVector &p2);
 
+/// the M2 variable and its solution to the invisible particle momenta.
 std::optional<yam2::M2Solution> getM2(const LorentzVector &p1,
                                       const LorentzVector &p2,
                                       const TVector2 &ptmiss);
