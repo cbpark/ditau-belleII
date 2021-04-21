@@ -116,6 +116,7 @@ int main(int, char *argv[]) {
         ptmiss.Set(-(p1.Px() + p2.Px()), -(p1.Py() + p2.Py()));
 
 #ifdef DEBUG
+        cout << "--- (" << iev << ")\n";
         cout << "p1: " << p1 << ", p2: " << p2 << '\n';
         cout << "ptmiss: ";
         ptmiss.Print();
@@ -139,9 +140,12 @@ int main(int, char *argv[]) {
             k2sol = toLorentzVector(m2sol.value().k2());
             xi_k = momentumRatio(k1sol, k2sol);
         }
+
+#ifdef DEBUG
         cout << "e_miss: " << e_miss << ", m_recoil: " << m_recoil
-             << ", xi_p: " << xi_p << '\n';
-        cout << "m2: " << m2 << ", xi_k: " << xi_k << '\n';
+             << ", xi_p: " << xi_p << "m2: " << m2 << ", xi_k: " << xi_k
+             << '\n';
+#endif
     }
     cout << appname << ": processed " << nentries << " events.\n";
     // event loop ends.
