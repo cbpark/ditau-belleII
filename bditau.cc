@@ -189,6 +189,7 @@ std::optional<yam2::M2Solution> getM2(const LorentzVector &p1,
                                       {p2.e(), p2.px(), p2.py(), p2.pz()}},
                                      {ZERO, ZERO}, {ptmiss.Px(), ptmiss.Py()},
                                      MINV, {}, SQRTS, {PZTOT});
+    // the latter arguments are tolerance and maximal evaluation number.
     return yam2::m2Cons(input, 1.0e-6, 1000);
 }
 
