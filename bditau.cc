@@ -160,6 +160,11 @@ int main(int argc, char *argv[]) {
     cout << APPNAME << ": the invisible mass is " << m_inv.value << '\n';
 
     // the event variables.
+    //
+    // xi_p = min(p1, p2) / max(p1, p2) and xi_k = min(k1, k2) / max(k1, k2)
+    // for visible particle momenta p and invisible particle momenta k.
+    // the invisible particle momenta will be determined by the by-product of
+    // the M2 calculation.
     double e_miss, m_recoil, m2, xi_p, xi_k;
 
     // ntuple for storing the variables.
@@ -172,8 +177,7 @@ int main(int argc, char *argv[]) {
         event->GetEntry(iev);
 
         p1.SetPxPyPzE(p1x, p1y, p1z, e1);
-        // the visible particle in the one-prong decay is assumed to be
-        // massless.
+        // the visible particle in the 1-prong decay is assumed to be massless.
         p2.SetPxPyPzE(p2x, p2y, p2z, std::hypot(p2x, p2y, p2z));
         ptmiss.Set(-(p1.Px() + p2.Px()), -(p1.Py() + p2.Py()));
 
