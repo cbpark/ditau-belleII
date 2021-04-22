@@ -114,11 +114,11 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
-    // input root file.
+    // the input root file.
     TFile infile(argv[1]);
     cout << APPNAME << ": the input file is " << infile.GetName() << '\n';
 
-    // check the tree.
+    // check the tree in the input file.
     auto keys = infile.GetListOfKeys();
     if (keys->GetSize() < 1) {
         cerr << APPNAME << ": the input has no tree.\n";
@@ -135,7 +135,7 @@ int main(int argc, char *argv[]) {
     double p1x, p1y, p1z, e1;
     // the three-momentum of visible particles in the one-prong decay.
     double p2x, p2y, p2z;
-    // set each particle momentum component from the tree.
+    // set each particle momentum component included in the tree.
     event->SetBranchAddress("tau_3prong_px_CMS", &p1x);
     event->SetBranchAddress("tau_3prong_py_CMS", &p1y);
     event->SetBranchAddress("tau_3prong_pz_CMS", &p1z);
