@@ -17,6 +17,7 @@
 
 // ROOT
 #include "Math/LorentzVector.h"
+// #include "Math/Vector4D.h"
 #include "TFile.h"
 #include "TTree.h"
 #include "TVector2.h"
@@ -29,6 +30,7 @@ using std::cout;
 
 /// we use the recommended LorentzVector rather than legacy TLorentzVector.
 using LorentzVector = ROOT::Math::LorentzVector<ROOT::Math::PxPyPzE4D<double>>;
+// using LorentzVector = ROOT::Math::XYZTVector;
 
 const auto appname{"bditau"};
 
@@ -49,24 +51,45 @@ const yam2::FourMomentum ZERO;
 
 /// E_{miss} = sqrt(ptmiss_x^2 + ptmiss_y^2 + pzmiss^2).
 double eMiss(const LorentzVector &p1, const LorentzVector &p2,
-             const TVector2 &ptmiss);
+             const TVector2 &ptmiss) {
+    const double pzmiss = PZTOT - p1.pz() - p2.pz();
+    // std::hypot(x, y, z) = sqrt(x^2 + y^2 + z^2) since c++17.
+    return std::hypot(ptmiss.Px(), ptmiss.Py(), pzmiss);
+}
 
 /// the recoil mass.
-double mRecoil(const LorentzVector &p1, const LorentzVector &p2);
+double mRecoil(const LorentzVector &p1, const LorentzVector &p2) {
+    const auto p_miss = CMS - p1 - p2;
+    return p_miss.mass();
+}
 
 /// ratio of min(p1, p2) and max(p1, p2).
 ///
 /// Here 'p1' and 'p2' could be either visible or invisible particle momenta.
 /// By definition, it is in between 0 and 1.
-double momentumRatio(const LorentzVector &p1, const LorentzVector &p2);
+double momentumRatio(const LorentzVector &p1, const LorentzVector &p2) {
+    const auto [pmin, pmax] = std::minmax({p1.P(), p2.P()});
+    return pmin / std::max(pmax, 1.0e-10);
+}
 
 /// the M2 variable and its solution to the invisible particle momenta.
 std::optional<yam2::M2Solution> getM2(const LorentzVector &p1,
                                       const LorentzVector &p2,
-                                      const TVector2 &ptmiss);
+                                      const TVector2 &ptmiss) {
+    // input kinematic configuration for M2.
+    // see the above for the constants (ZERO, MINV, SQRTS, PZTOT).
+    const auto input = yam2::mkInput({{p1.e(), p1.px(), p1.py(), p1.pz()},
+                                      {p2.e(), p2.px(), p2.py(), p2.pz()}},
+                                     {ZERO, ZERO}, {ptmiss.Px(), ptmiss.Py()},
+                                     MINV, {}, SQRTS, {PZTOT});
+    // the latter arguments are tolerance and maximal evaluation number.
+    return yam2::m2Cons(input, 1.0e-6, 1000);
+}
 
 /// converts 'yam2::FourMomentum' to 'LorentzVector'.
-LorentzVector toLorentzVector(const yam2::FourMomentum &p);
+LorentzVector toLorentzVector(const yam2::FourMomentum &p) {
+    return {p.px(), p.py(), p.pz(), p.e()};
+}
 
 // ------------------------------------------------------------------------------
 // the main function
@@ -120,7 +143,7 @@ int main(int, char *argv[]) {
 
         p1.SetPxPyPzE(p1x, p1y, p1z, e1);
         // the visible particle in the one-prong decay is assumed to be
-        // massless. std::hypot(x, y, z) = sqrt(x^2 + y^2 + z^2) since c++17.
+        // massless.
         p2.SetPxPyPzE(p2x, p2y, p2z, std::hypot(p2x, p2y, p2z));
         ptmiss.Set(-(p1.Px() + p2.Px()), -(p1.Py() + p2.Py()));
 
@@ -163,36 +186,3 @@ int main(int, char *argv[]) {
     infile.Close();
 }
 // ------------------------------------------------------------------------------
-
-double eMiss(const LorentzVector &p1, const LorentzVector &p2,
-             const TVector2 &ptmiss) {
-    const double pzmiss = PZTOT - p1.pz() - p2.pz();
-    return std::hypot(ptmiss.Px(), ptmiss.Py(), pzmiss);
-}
-
-double mRecoil(const LorentzVector &p1, const LorentzVector &p2) {
-    const auto p_miss = CMS - p1 - p2;
-    return p_miss.mass();
-}
-
-double momentumRatio(const LorentzVector &p1, const LorentzVector &p2) {
-    const auto [pmin, pmax] = std::minmax({p1.P(), p2.P()});
-    return pmin / std::max(pmax, 1.0e-10);
-}
-
-std::optional<yam2::M2Solution> getM2(const LorentzVector &p1,
-                                      const LorentzVector &p2,
-                                      const TVector2 &ptmiss) {
-    // input kinematic configuration for M2.
-    // see the above for the constants (ZERO, MINV, SQRTS, PZTOT).
-    const auto input = yam2::mkInput({{p1.e(), p1.px(), p1.py(), p1.pz()},
-                                      {p2.e(), p2.px(), p2.py(), p2.pz()}},
-                                     {ZERO, ZERO}, {ptmiss.Px(), ptmiss.Py()},
-                                     MINV, {}, SQRTS, {PZTOT});
-    // the latter arguments are tolerance and maximal evaluation number.
-    return yam2::m2Cons(input, 1.0e-6, 1000);
-}
-
-LorentzVector toLorentzVector(const yam2::FourMomentum &p) {
-    return {p.px(), p.py(), p.pz(), p.e()};
-}
