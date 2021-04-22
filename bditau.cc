@@ -12,6 +12,7 @@
 
 #include <algorithm>  // std::max, std::minmax
 #include <cmath>      // std::hypot
+#include <cstdlib>    // std::atof
 #include <iostream>
 #include <optional>  // std::optional
 
@@ -19,6 +20,7 @@
 #include "Math/LorentzVector.h"
 // #include "Math/Vector4D.h"
 #include "TFile.h"
+#include "TNtuple.h"
 #include "TTree.h"
 #include "TVector2.h"
 
@@ -29,12 +31,16 @@ using std::cerr;
 using std::cout;
 
 /// we use the recommended LorentzVector rather than legacy TLorentzVector.
+/// we could set 'using LorentzVector = ROOT::Math::XYZTVector;'
 using LorentzVector = ROOT::Math::LorentzVector<ROOT::Math::PxPyPzE4D<double>>;
-// using LorentzVector = ROOT::Math::XYZTVector;
 
-const auto appname{"bditau"};
+const auto APPNAME{"bditau"};
 
-/// the longitudinal momentum of the di-tau system (it's 0 for the CMS).
+/*
+ *  Constants
+ */
+/// the longitudinal momentum of the di-tau system (it's 0 for the CMS,
+/// while 7 - 4 = 3 GeV in the LAB frame).
 const double PZTOT = 0.0;
 
 /// sqrt(s) of CMS.
@@ -43,13 +49,14 @@ const double SQRTS = 10.579;
 /// the four-momentum of the di-tau system.
 const LorentzVector CMS{0.0, 0.0, PZTOT, SQRTS};
 
-/// the invisible particle mass.
-const yam2::Mass MINV{0.0};
-
-/// zero momentum for convenience to calculate M2.
+/// zero four-momentum (0, 0, 0, 0) for convenience to calculate M2.
 const yam2::FourMomentum ZERO;
 
-/// E_{miss} = sqrt(ptmiss_x^2 + ptmiss_y^2 + pzmiss^2).
+/*
+ *  Functions for calculating the event variables.
+ */
+/// E_{miss} = sqrt(ptmiss_x^2 + ptmiss_y^2 + pzmiss^2),
+/// analogous to MET in hadron colliders.
 double eMiss(const LorentzVector &p1, const LorentzVector &p2,
              const TVector2 &ptmiss) {
     const double pzmiss = PZTOT - p1.pz() - p2.pz();
@@ -58,6 +65,7 @@ double eMiss(const LorentzVector &p1, const LorentzVector &p2,
 }
 
 /// the recoil mass.
+/// See Eq.(1) in https://arxiv.org/pdf/1506.05992.pdf
 double mRecoil(const LorentzVector &p1, const LorentzVector &p2) {
     const auto p_miss = CMS - p1 - p2;
     return p_miss.mass();
@@ -75,13 +83,14 @@ double momentumRatio(const LorentzVector &p1, const LorentzVector &p2) {
 /// the M2 variable and its solution to the invisible particle momenta.
 std::optional<yam2::M2Solution> getM2(const LorentzVector &p1,
                                       const LorentzVector &p2,
-                                      const TVector2 &ptmiss) {
+                                      const TVector2 &ptmiss,
+                                      const yam2::Mass &m_inv) {
     // input kinematic configuration for M2.
-    // see the above for the constants (ZERO, MINV, SQRTS, PZTOT).
+    // see the above for the constants (ZERO, SQRTS, PZTOT).
     const auto input = yam2::mkInput({{p1.e(), p1.px(), p1.py(), p1.pz()},
                                       {p2.e(), p2.px(), p2.py(), p2.pz()}},
                                      {ZERO, ZERO}, {ptmiss.Px(), ptmiss.Py()},
-                                     MINV, {}, SQRTS, {PZTOT});
+                                     m_inv, {}, SQRTS, {PZTOT});
     // the latter arguments are tolerance and maximal evaluation number.
     return yam2::m2Cons(input, 1.0e-6, 1000);
 }
@@ -91,25 +100,35 @@ LorentzVector toLorentzVector(const yam2::FourMomentum &p) {
     return {p.px(), p.py(), p.pz(), p.e()};
 }
 
-// ------------------------------------------------------------------------------
-// the main function
-int main(int, char *argv[]) {
+/*
+ *  The main function
+ */
+int main(int argc, char *argv[]) {
+    if (!(argc == 3 || argc == 4)) {
+        cout << "usage: ./bin/" << APPNAME
+             << " <event.root> <output.root> [mInvisible]\n"
+             << "  <event.root>: input ntuple file (required).\n"
+             << "  <output.root>: output file to store the result (required).\n"
+             << "  [mInvisible]: the input mass for invisible particles "
+                "(optional, default = 0)\n";
+        return 1;
+    }
+
     // input root file.
-    auto infile = TFile(argv[1]);
-    cout << appname << ": the input file is " << infile.GetName() << '\n';
+    TFile infile(argv[1]);
+    cout << APPNAME << ": the input file is " << infile.GetName() << '\n';
 
     // check the tree.
     auto keys = infile.GetListOfKeys();
     if (keys->GetSize() < 1) {
-        cerr << appname << ": the input has no tree.\n";
+        cerr << APPNAME << ": the input has no tree.\n";
         infile.Close();
         return 1;
     }
 
     // get the tree.
     auto tree_name = infile.GetListOfKeys()->At(0)->GetName();
-    cout << appname << ": the name of the tree is " << tree_name << '\n';
-
+    cout << APPNAME << ": the name of the input tree is " << tree_name << '\n';
     auto event = dynamic_cast<TTree *>(infile.Get(tree_name));
 
     // the four-momentum of visible particles in the three-prong decay.
@@ -131,9 +150,20 @@ int main(int, char *argv[]) {
     TVector2 ptmiss;
     // the MAOS solutions to the invisible momenta.
     LorentzVector k1sol, k2sol;
+    // the invisible particle mass.
+    yam2::Mass m_inv;
+    if (argc == 3) {
+        m_inv = yam2::Mass{0.0};
+    } else {
+        m_inv = yam2::Mass{std::atof(argv[3])};
+    }
+    cout << APPNAME << ": the invisible mass is " << m_inv.value << '\n';
 
-    // the observables.
+    // the event variables.
     double e_miss, m_recoil, m2, xi_p, xi_k;
+
+    // ntuple for storing the variables.
+    TNtuple vars{"vars", "event variables", "e_miss:m_recoil:m2:xi_p:xi_k"};
 
     // --------------------------------------------------------------------------
     // event loop
@@ -160,9 +190,9 @@ int main(int, char *argv[]) {
 
         xi_p = momentumRatio(p1, p2);
 
-        const auto m2sol = getM2(p1, p2, ptmiss);
+        const auto m2sol = getM2(p1, p2, ptmiss, m_inv);
         if (!m2sol) {
-            cerr << appname << ": failed to find minimum for M2! (" << iev
+            cerr << APPNAME << ": failed to find minimum for M2! (" << iev
                  << ")\n";
             m2 = -1.0;
             xi_k = -1.0;
@@ -175,14 +205,21 @@ int main(int, char *argv[]) {
 
 #ifdef DEBUG
         cout << "e_miss: " << e_miss << ", m_recoil: " << m_recoil
-             << ", xi_p: " << xi_p << "m2: " << m2 << ", xi_k: " << xi_k
+             << ", m2: " << m2 << ", xi_p: " << xi_p << ", xi_k: " << xi_k
              << '\n';
 #endif
+        // fill the ntuple
+        vars.Fill(e_miss, m_recoil, m2, xi_p, xi_k);
     }
-    cout << appname << ": processed " << nentries << " events.\n";
     // event loop ends.
     // --------------------------------------------------------------------------
 
     infile.Close();
+    cout << APPNAME << ": processed " << nentries << " events.\n";
+
+    TFile outfile{argv[2], "recreate"};
+    cout << APPNAME << ": the output is stored in " << outfile.GetName()
+         << '\n';
+    vars.Write();
+    outfile.Close();
 }
-// ------------------------------------------------------------------------------
