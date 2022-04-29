@@ -49,9 +49,6 @@ const double SQRTS = 10.579;
 /// the four-momentum of the di-tau system.
 const LorentzVector CMS{0.0, 0.0, PZTOT, SQRTS};
 
-/// zero four-momentum (0, 0, 0, 0) for convenience to calculate M2.
-const yam2::FourMomentum ZERO;
-
 /*
  *  Functions for calculating the event variables.
  */
@@ -87,10 +84,10 @@ std::optional<yam2::M2Solution> getM2(const LorentzVector &p1,
                                       const yam2::Mass &m_inv) {
     // input kinematic configuration for M2.
     // see the above for the constants (ZERO, SQRTS, PZTOT).
-    const auto input = yam2::mkInput({{p1.e(), p1.px(), p1.py(), p1.pz()},
-                                      {p2.e(), p2.px(), p2.py(), p2.pz()}},
-                                     {ZERO, ZERO}, {ptmiss.Px(), ptmiss.Py()},
-                                     m_inv, {}, SQRTS, {PZTOT});
+    const auto input =
+        yam2::mkInput({p1.e(), p1.px(), p1.py(), p1.pz()},
+                      {p2.e(), p2.px(), p2.py(), p2.pz()},
+                      {ptmiss.Px(), ptmiss.Py()}, m_inv, {}, SQRTS, {PZTOT});
     // the latter arguments are tolerance and maximal evaluation number.
     return yam2::m2Cons(input, 1.0e-6, 1000);
 }
